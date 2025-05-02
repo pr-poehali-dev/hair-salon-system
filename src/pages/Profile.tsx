@@ -112,7 +112,16 @@ const Profile = () => {
       .split(' ')
       .map(part => part[0])
       .join('')
-      .toUpperCase()
+
+              <CardFooter className="flex justify-between">
+                <Button variant="outline" onClick={logout}>Выйти</Button>
+                {user?.role === "admin" && (
+                  <Button variant="default" asChild>
+                    <Link to="/admin">Панель администратора</Link>
+                  </Button>
+                )}
+              </CardFooter>
+
       .substring(0, 2);
   };
 

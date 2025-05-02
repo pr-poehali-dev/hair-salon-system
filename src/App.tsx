@@ -35,7 +35,11 @@ function App() {
               <Route path="/register" element={<Register />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/booking" element={<Booking />} />
+
+              <Route path="/booking" element={<Booking />} />
+              <Route path="/admin" element={<AdminPanel />} />
               <Route path="*" element={<NotFound />} />
+
             </Routes>
           </main>
           <Footer />

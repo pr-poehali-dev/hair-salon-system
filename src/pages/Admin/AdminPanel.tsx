@@ -1,5 +1,6 @@
 
 import { useState } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -11,6 +12,14 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Sidebar } from '@/components/ui/sidebar';
+import { Input } from '@/components/ui/input';
+import { useAdminGuard } from '@/hooks/use-admin-guard';
+import AdminDashboard from '@/components/AdminDashboard';
+import { services, staffMembers, formatPrice, formatDuration } from '@/data/services';
+import { products } from '@/data/products';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { 
   Users, 
   Package, 
@@ -20,18 +29,75 @@ import {
   PlusCircle,
   Pencil,
   Trash2,
-  Calendar
+  Calendar,
+  LayoutDashboard,
+  Settings,
+  ShoppingBag,
+  LogOut
 } from 'lucide-react';
-import { useAdminGuard } from '@/hooks/use-admin-guard';
-import { Input } from '@/components/ui/input';
-import { services, staffMembers, formatPrice, formatDuration } from '@/data/services';
-import { products } from '@/data/products';
+import { useAuth } from '@/context/auth-context';
 
 const AdminPanel = () => {
   const { isAdmin, loading } = useAdminGuard();
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [serviceSearch, setServiceSearch] = useState('');
   const [productSearch, setProductSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{id: string | number, type: string, name: string} | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { logout } = useAuth();
+
+  // Создаем элементы для боковой навигации
+  const sidebarItems = [
+    {
+      title: "Дашборд",
+      href: "/admin",
+      icon: LayoutDashboard,
+    },
+    {
+      title: "Услуги",
+      href: "/admin?tab=services",
+      icon: Scissors,
+    },
+    {
+      title: "Товары",
+      href: "/admin?tab=products",
+      icon: ShoppingBag,
+    },
+    {
+      title: "Персонал",
+      href: "/admin?tab=staff",
+      icon: Users,
+    },
+    {
+      title: "Записи",
+      href: "/admin?tab=appointments",
+      icon: Calendar,
+    },
+    {
+      title: "Настройки",
+      href: "/admin?tab=settings",
+      icon: Settings,
+      disabled: true,
+    },
+    {
+      title: "Выйти",
+      href: "/",
+      icon: LogOut,
+      onClick: () => logout(),
+    },
+  ];
+
+  // Обрабатываем параметры URL для определения активной вкладки
+  useState(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab) {
+      setActiveTab(tab);
+    }
+  });
 
   // Фильтрация услуг
   const filteredServices = services.filter(service => 
@@ -48,6 +114,23 @@ const AdminPanel = () => {
     staff.name.toLowerCase().includes(userSearch.toLowerCase())
   );
 
+  // Обработчик для нажатия на кнопку удаления
+  const handleDeleteClick = (id: string | number, type: string, name: string) => {
+    setItemToDelete({ id, type, name });
+    setIsDeleteDialogOpen(true);
+  };
+
+  // Обработчик для подтверждения удаления
+  const handleConfirmDelete = () => {
+    if (itemToDelete) {
+      // В реальном приложении здесь был бы запрос к API
+      console.log(`Удаление ${itemToDelete.type} с ID ${itemToDelete.id}`);
+      // Закрываем диалог
+      setIsDeleteDialogOpen(false);
+      setItemToDelete(null);
+    }
+  };
+
   // Если все еще идет проверка или пользователь не администратор, показываем состояние загрузки
   if (loading) {
     return (
@@ -61,29 +144,66 @@ const AdminPanel = () => {
   if (!isAdmin) return null;
 
   return (
-    <div className="py-10">
-      <div className="container mx-auto px-4">
-        <h1 className="text-3xl font-bold mb-6 font-playfair">Панель администратора</h1>
-        
-        <Tabs defaultValue="services" className="w-full">
-          <TabsList className="grid grid-cols-4 mb-8">
-            <TabsTrigger value="services" className="flex items-center gap-2">
+    <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
+      {/* Боковая навигация */}
+      <aside className="hidden md:block w-64 border-r bg-muted/40">
+        <div className="p-6">
+          <h2 className="text-lg font-semibold">Админ панель</h2>
+          <p className="text-sm text-muted-foreground">Управление салоном красоты</p>
+        </div>
+        <Sidebar items={sidebarItems} />
+      </aside>
+      
+      {/* Основное содержимое */}
+      <div className="flex-1 overflow-auto p-6">
+        <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid grid-cols-5 mb-8">
+            <TabsTrigger 
+              value="dashboard" 
+              className="flex items-center gap-2"
+              onClick={() => navigate('/admin')}
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              <span className="hidden sm:inline-block">Дашборд</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="services" 
+              className="flex items-center gap-2"
+              onClick={() => navigate('/admin?tab=services')}
+            >
               <Scissors className="h-4 w-4" />
-              <span>Услуги</span>
+              <span className="hidden sm:inline-block">Услуги</span>
             </TabsTrigger>
-            <TabsTrigger value="products" className="flex items-center gap-2">
+            <TabsTrigger 
+              value="products" 
+              className="flex items-center gap-2"
+              onClick={() => navigate('/admin?tab=products')}
+            >
               <Package className="h-4 w-4" />
-              <span>Товары</span>
+              <span className="hidden sm:inline-block">Товары</span>
             </TabsTrigger>
-            <TabsTrigger value="staff" className="flex items-center gap-2">
+            <TabsTrigger 
+              value="staff" 
+              className="flex items-center gap-2"
+              onClick={() => navigate('/admin?tab=staff')}
+            >
               <Users className="h-4 w-4" />
-              <span>Персонал</span>
+              <span className="hidden sm:inline-block">Персонал</span>
             </TabsTrigger>
-            <TabsTrigger value="appointments" className="flex items-center gap-2">
+            <TabsTrigger 
+              value="appointments" 
+              className="flex items-center gap-2"
+              onClick={() => navigate('/admin?tab=appointments')}
+            >
               <Calendar className="h-4 w-4" />
-              <span>Записи</span>
+              <span className="hidden sm:inline-block">Записи</span>
             </TabsTrigger>
           </TabsList>
+          
+          {/* Дашборд */}
+          <TabsContent value="dashboard">
+            <AdminDashboard />
+          </TabsContent>
           
           {/* Услуги */}
           <TabsContent value="services">
@@ -125,8 +245,19 @@ const AdminPanel = () => {
                     <TableBody>
                       {filteredServices.map((service) => (
                         <TableRow key={service.id}>
-                          <TableCell className="font-medium">{service.title}</TableCell>
-                          <TableCell>{service.category}</TableCell>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <img 
+                                src={service.image} 
+                                alt={service.title} 
+                                className="w-8 h-8 rounded-full object-cover" 
+                              />
+                              <span>{service.title}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{service.category}</Badge>
+                          </TableCell>
                           <TableCell>{formatPrice(service.price)}</TableCell>
                           <TableCell>{formatDuration(service.duration)}</TableCell>
                           <TableCell className="text-right">
@@ -134,7 +265,12 @@ const AdminPanel = () => {
                               <Button size="icon" variant="ghost">
                                 <Pencil className="h-4 w-4" />
                               </Button>
-                              <Button size="icon" variant="ghost" className="text-destructive">
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="text-destructive"
+                                onClick={() => handleDeleteClick(service.id, 'услугу', service.title)}
+                              >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
@@ -181,34 +317,48 @@ const AdminPanel = () => {
                         <TableHead>Название</TableHead>
                         <TableHead>Категория</TableHead>
                         <TableHead>Цена</TableHead>
-                        <TableHead>В наличии</TableHead>
+                        <TableHead>Статус</TableHead>
                         <TableHead className="text-right">Действия</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredProducts.map((product) => (
                         <TableRow key={product.id}>
-                          <TableCell className="font-medium">{product.title}</TableCell>
-                          <TableCell>{product.category}</TableCell>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <img 
+                                src={product.image} 
+                                alt={product.title} 
+                                className="w-8 h-8 rounded object-cover" 
+                              />
+                              <span>{product.title}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{product.category}</Badge>
+                          </TableCell>
                           <TableCell>
                             {product.discountPrice ? (
-                              <>
+                              <div>
                                 <span className="line-through text-gray-500 mr-2">
                                   {product.price} ₽
                                 </span>
                                 <span className="text-primary font-medium">
                                   {product.discountPrice} ₽
                                 </span>
-                              </>
+                              </div>
                             ) : (
                               `${product.price} ₽`
                             )}
                           </TableCell>
                           <TableCell>
                             {product.inStock ? (
-                              <span className="text-green-600">Да</span>
+                              <Badge variant="success" className="bg-green-100 text-green-800 hover:bg-green-200">В наличии</Badge>
                             ) : (
-                              <span className="text-red-600">Нет</span>
+                              <Badge variant="destructive" className="bg-red-100 text-red-800 hover:bg-red-200">Нет в наличии</Badge>
+                            )}
+                            {product.isNew && (
+                              <Badge className="ml-2 bg-blue-100 text-blue-800 hover:bg-blue-200">Новинка</Badge>
                             )}
                           </TableCell>
                           <TableCell className="text-right">
@@ -216,7 +366,12 @@ const AdminPanel = () => {
                               <Button size="icon" variant="ghost">
                                 <Pencil className="h-4 w-4" />
                               </Button>
-                              <Button size="icon" variant="ghost" className="text-destructive">
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="text-destructive"
+                                onClick={() => handleDeleteClick(product.id, 'товар', product.title)}
+                              >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
@@ -273,7 +428,17 @@ const AdminPanel = () => {
                           <Clock className="h-4 w-4 mr-1" />
                           <span>{staff.workHours.start} - {staff.workHours.end}</span>
                         </p>
-                        <p className="text-sm">
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {staff.workDays.map((day, index) => {
+                            const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+                            return (
+                              <Badge key={index} variant="outline" className="text-xs">
+                                {days[day]}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                        <p className="text-sm mb-3">
                           Услуг: {staff.services.length}
                         </p>
                         <div className="flex justify-end mt-3 gap-2">
@@ -281,7 +446,12 @@ const AdminPanel = () => {
                             <Pencil className="h-3 w-3 mr-1" />
                             Изменить
                           </Button>
-                          <Button size="sm" variant="outline" className="text-destructive border-destructive hover:bg-destructive/10">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="text-destructive border-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteClick(staff.id, 'сотрудника', staff.name)}
+                          >
                             <Trash2 className="h-3 w-3 mr-1" />
                             Удалить
                           </Button>
@@ -313,6 +483,33 @@ const AdminPanel = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Диалог подтверждения удаления */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Подтверждение удаления</DialogTitle>
+            <DialogDescription>
+              Вы уверены, что хотите удалить {itemToDelete?.type} "{itemToDelete?.name}"?
+              Это действие невозможно отменить.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Отмена
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleConfirmDelete}
+            >
+              Удалить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

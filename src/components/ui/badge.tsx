@@ -34,3 +34,10 @@ function Badge({ className, variant, ...props }: BadgeProps) {
 }
 
 export { Badge, badgeVariants }
+
+  'destructive': 'border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80',
+  'success': 'border-transparent bg-green-500 text-white hover:bg-green-600',
+  'warning': 'border-transparent bg-amber-500 text-white hover:bg-amber-600',
+  'outline': 'text-foreground',
+  'secondary': 'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
+
