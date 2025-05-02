@@ -5,6 +5,8 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Index from '@/pages/Index';
 import Services from '@/pages/Services';
+import Shop from '@/pages/Shop';
+import ProductDetail from '@/pages/ProductDetail';
 import NotFound from '@/pages/NotFound';
 import './App.css';
 
@@ -17,6 +19,8 @@ function App() {
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/services" element={<Services />} />
+            <Route path="/shop" element={<Shop />} />
+            <Route path="/shop/:slug" element={<ProductDetail />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
