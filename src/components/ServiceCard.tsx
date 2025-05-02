@@ -1,38 +1,67 @@
 
-import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { Clock, Tag } from "lucide-react";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Service, formatDuration, formatPrice } from "@/data/services";
 
 interface ServiceCardProps {
-  title: string;
-  description: string;
-  price: string;
-  image: string;
-  slug: string;
+  service: Service;
+  variant?: "default" | "compact";
 }
 
-const ServiceCard = ({ title, description, price, image, slug }: ServiceCardProps) => {
+const ServiceCard = ({ service, variant = "default" }: ServiceCardProps) => {
+  const { id, title, description, price, duration, category, image } = service;
+
+  if (variant === "compact") {
+    return (
+      <Card className="overflow-hidden transition-all duration-300 hover:shadow-md">
+        <div className="p-4">
+          <h3 className="font-medium text-lg mb-1">{title}</h3>
+          <div className="flex items-center justify-between mt-3">
+            <div className="flex items-center text-sm text-gray-600">
+              <Clock className="h-4 w-4 mr-1" />
+              <span>{formatDuration(duration)}</span>
+            </div>
+            <span className="font-semibold text-primary">{formatPrice(price)}</span>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden service-card transition-all duration-300">
+    <Card className="overflow-hidden transition-all duration-300 hover:shadow-md">
       <div className="h-48 overflow-hidden">
         <img
           src={image}
           alt={title}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
         />
       </div>
-      <div className="p-6">
-        <h3 className="font-playfair text-xl font-semibold mb-2">{title}</h3>
-        <p className="text-gray-600 mb-4 line-clamp-2">{description}</p>
-        <div className="flex justify-between items-center">
-          <span className="text-primary font-semibold">{price}</span>
-          <Link to={`/services/${slug}`}>
-            <Button variant="outline" className="hover:bg-primary hover:text-white">
-              Подробнее
-            </Button>
-          </Link>
+      <CardContent className="p-5">
+        <Badge variant="outline" className="mb-2">
+          {category}
+        </Badge>
+        <h3 className="font-medium text-xl mb-2">{title}</h3>
+        <p className="text-gray-600 text-sm line-clamp-3 mb-4">{description}</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center text-sm text-gray-600">
+            <Clock className="h-4 w-4 mr-1" />
+            <span>{formatDuration(duration)}</span>
+          </div>
+          <span className="font-semibold text-lg text-primary">{formatPrice(price)}</span>
         </div>
-      </div>
-    </div>
+      </CardContent>
+      <CardFooter className="p-4 pt-0">
+        <Link to={`/booking?service=${id}`} className="w-full">
+          <Button variant="default" className="w-full">
+            Записаться
+          </Button>
+        </Link>
+      </CardFooter>
+    </Card>
   );
 };
 

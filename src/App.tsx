@@ -11,6 +11,7 @@ import ProductDetail from '@/pages/ProductDetail';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import Profile from '@/pages/Profile';
+import Booking from '@/pages/Booking';
 import NotFound from '@/pages/NotFound';
 import './App.css';
 
@@ -29,6 +30,7 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/booking" element={<Booking />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
