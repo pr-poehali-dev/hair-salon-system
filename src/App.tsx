@@ -12,7 +12,11 @@ import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import Profile from '@/pages/Profile';
 import Booking from '@/pages/Booking';
+
 import NotFound from '@/pages/NotFound';
+import AdminPanel from '@/pages/Admin';
+import './App.css';
+
 import './App.css';
 
 function App() {
