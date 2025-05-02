@@ -106,23 +106,16 @@ const Profile = () => {
     }
   };
 
+
   // Получаем инициалы для аватара
   const getInitials = (name: string) => {
     return name
       .split(' ')
       .map(part => part[0])
       .join('')
-
-              <CardFooter className="flex justify-between">
-                <Button variant="outline" onClick={logout}>Выйти</Button>
-                {user?.role === "admin" && (
-                  <Button variant="default" asChild>
-                    <Link to="/admin">Панель администратора</Link>
-                  </Button>
-                )}
-              </CardFooter>
-
       .substring(0, 2);
+  };
+
   };
 
   // Обработчик отмены записи
