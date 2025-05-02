@@ -3,12 +3,33 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Menu, X, Scissors, ShoppingBag, User } from 'lucide-react';
 import { Button } from './ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from '@/context/auth-context';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, logout } = useAuth();
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
+  };
+
+  // Получаем инициалы для аватара
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
   };
 
   return (
@@ -46,12 +67,56 @@ const Header = () => {
               0
             </span>
           </Link>
-          <Link to="/login">
-            <Button variant="outline" size="sm" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              <span>Войти</span>
-            </Button>
-          </Link>
+          
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user.avatar} alt={user.name} />
+                    <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{user.name}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {user.email}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/profile">Профиль</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/profile?tab=appointments">Мои записи</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/profile?tab=orders">Мои заказы</Link>
+                </DropdownMenuItem>
+                {user.role === 'admin' && (
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin">Админ-панель</Link>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={logout}>
+                  Выйти
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link to="/login">
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                <span>Войти</span>
+              </Button>
+            </Link>
+          )}
+          
           <Link to="/booking">
             <Button size="sm" className="bg-primary hover:bg-primary/90">
               Записаться
@@ -107,20 +172,80 @@ const Header = () => {
             >
               Контакты
             </Link>
-            <div className="flex items-center space-x-4 pt-2">
-              <Link to="/cart" className="text-gray-700 hover:text-primary relative">
-                <ShoppingBag className="h-6 w-6" />
+            
+            <div className="pt-2 border-t border-gray-100">
+              {user ? (
+                <>
+                  <div className="flex items-center space-x-3 mb-3">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user.avatar} alt={user.name} />
+                      <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="text-sm font-medium">{user.name}</p>
+                      <p className="text-xs text-gray-500">{user.email}</p>
+                    </div>
+                  </div>
+                  <Link 
+                    to="/profile" 
+                    className="block py-2 text-gray-700 hover:text-primary"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Профиль
+                  </Link>
+                  <Link 
+                    to="/profile?tab=appointments" 
+                    className="block py-2 text-gray-700 hover:text-primary"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Мои записи
+                  </Link>
+                  <Link 
+                    to="/profile?tab=orders" 
+                    className="block py-2 text-gray-700 hover:text-primary"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Мои заказы
+                  </Link>
+                  {user.role === 'admin' && (
+                    <Link 
+                      to="/admin" 
+                      className="block py-2 text-gray-700 hover:text-primary"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Админ-панель
+                    </Link>
+                  )}
+                  <button 
+                    onClick={() => {
+                      logout();
+                      setIsMenuOpen(false);
+                    }}
+                    className="block py-2 text-gray-700 hover:text-primary w-full text-left"
+                  >
+                    Выйти
+                  </button>
+                </>
+              ) : (
+                <Link to="/login" onClick={() => setIsMenuOpen(false)}>
+                  <Button variant="outline" size="sm" className="flex items-center gap-2 w-full">
+                    <User className="h-4 w-4" />
+                    <span>Войти</span>
+                  </Button>
+                </Link>
+              )}
+            </div>
+            
+            <Link to="/cart" className="flex items-center justify-between text-gray-700 hover:text-primary">
+              <span>Корзина</span>
+              <div className="relative">
+                <ShoppingBag className="h-5 w-5" />
                 <span className="absolute -top-1 -right-1 bg-primary text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
                   0
                 </span>
-              </Link>
-              <Link to="/login" onClick={() => setIsMenuOpen(false)}>
-                <Button variant="outline" size="sm" className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  <span>Войти</span>
-                </Button>
-              </Link>
-            </div>
+              </div>
+            </Link>
+            
             <Link to="/booking" onClick={() => setIsMenuOpen(false)}>
               <Button size="sm" className="w-full bg-primary hover:bg-primary/90">
                 Записаться
