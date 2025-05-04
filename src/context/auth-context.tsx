@@ -1,215 +1,143 @@
 
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { toast } from '@/components/ui/use-toast';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { authService, User, LoginCredentials, AuthResponse } from '@/services/auth';
+import { useToast } from '@/hooks/use-toast';
 
-// Тип для пользователя
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  avatar?: string;
-  role: 'user' | 'admin';
-}
-
-// Интерфейс контекста авторизации
 interface AuthContextType {
   user: User | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  isAuthenticated: boolean;
+  isAdmin: boolean;
+  login: (credentials: LoginCredentials) => Promise<boolean>;
   logout: () => void;
-  updateProfile: (data: Partial<User>) => Promise<void>;
+  loading: boolean;
 }
 
-// Создание контекста
-const AuthContext = createContext<AuthContextType | null>(null);
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  isAuthenticated: false,
+  isAdmin: false,
+  login: async () => false,
+  logout: () => {},
+  loading: true,
+});
 
-// Хук для использования контекста
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth должен использоваться внутри AuthProvider');
-  }
-  return context;
-};
-
-// Моковые данные для имитации работы с сервером
-const mockUsers = [
-  {
-    id: '1',
-    name: 'Администратор',
-    email: 'admin@glamurshik.ru',
-    password: 'admin123',
-    phone: '+7 (999) 123-45-67',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=1740&q=80',
-    role: 'admin' as const,
-  },
-  {
-    id: '2',
-    name: 'Тестовый пользователь',
-    email: 'user@example.com',
-    password: 'password123',
-    phone: '+7 (999) 987-65-43',
-    avatar: 'https://images.unsplash.com/photo-1534751516642-a1af1ef26a56?ixlib=rb-4.0.3&auto=format&fit=crop&w=1740&q=80',
-    role: 'user' as const,
-  },
-];
+export const useAuth = () => useContext(AuthContext);
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
-// Провайдер аутентификации
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
-  // Проверяем, есть ли сохраненный пользователь при загрузке
+  // Проверка аутентификации при загрузке
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
+    const initAuth = async () => {
+      setLoading(true);
+      
       try {
-        setUser(JSON.parse(storedUser));
+        // Проверяем, авторизован ли пользователь
+        const isAuth = authService.isAuthenticated();
+        
+        if (isAuth) {
+          // Получаем данные пользователя
+          const userData = authService.getUser();
+          
+          if (userData) {
+            setUser(userData);
+          } else {
+            // Если данные пользователя отсутствуют, выходим из системы
+            authService.logout();
+          }
+        }
       } catch (error) {
-        console.error('Ошибка при парсинге данных пользователя:', error);
-        localStorage.removeItem('user');
+        console.error('Auth initialization error:', error);
+        toast({
+          title: 'Ошибка авторизации',
+          description: 'Не удалось загрузить данные пользователя',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
-  }, []);
+    };
+    
+    initAuth();
+    
+    // Настраиваем интервал для проверки токена
+    const tokenCheckInterval = setInterval(async () => {
+      if (authService.isAuthenticated()) {
+        // Если токен почти истек, обновляем его
+        const tokenExpiry = parseInt(localStorage.getItem('token_expiry') || '0', 10);
+        const fiveMinutesBeforeExpiry = tokenExpiry - 5 * 60 * 1000; // 5 минут до истечения
+        
+        if (Date.now() > fiveMinutesBeforeExpiry) {
+          try {
+            await authService.refreshToken();
+          } catch (error) {
+            console.error('Token refresh error:', error);
+          }
+        }
+      }
+    }, 60000); // Проверяем каждую минуту
+    
+    return () => clearInterval(tokenCheckInterval);
+  }, [toast]);
 
-  // Функция входа
-  const login = async (email: string, password: string) => {
+  const login = async (credentials: LoginCredentials): Promise<boolean> => {
     setLoading(true);
+    
     try {
-      // Имитация задержки запроса к серверу
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const foundUser = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-      
-      if (!foundUser || foundUser.password !== password) {
-        throw new Error('Неверный email или пароль');
-      }
-      
-      // Сохраняем данные пользователя без пароля
-      const { password: _, ...userWithoutPassword } = foundUser;
-      setUser(userWithoutPassword);
-      localStorage.setItem('user', JSON.stringify(userWithoutPassword));
+      const response: AuthResponse = await authService.login(credentials);
+      setUser(response.user);
       
       toast({
         title: 'Успешный вход',
-        description: `Добро пожаловать, ${userWithoutPassword.name}!`,
+        description: `Добро пожаловать, ${response.user.name}!`,
       });
+      
+      return true;
     } catch (error) {
-      if (error instanceof Error) {
-        toast({
-          variant: 'destructive',
-          title: 'Ошибка при входе',
-          description: error.message,
-        });
-      }
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Функция регистрации
-  const register = async (name: string, email: string, password: string) => {
-    setLoading(true);
-    try {
-      // Имитация задержки запроса к серверу
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Проверяем, существует ли пользователь с таким email
-      if (mockUsers.some(u => u.email.toLowerCase() === email.toLowerCase())) {
-        throw new Error('Пользователь с таким email уже существует');
-      }
-      
-      // В реальном приложении здесь был бы запрос к API для создания пользователя
-      const newUser: User = {
-        id: `${mockUsers.length + 1}`,
-        name,
-        email,
-        role: 'user',
-      };
-      
-      // Сохраняем пользователя
-      setUser(newUser);
-      localStorage.setItem('user', JSON.stringify(newUser));
+      console.error('Login error:', error);
       
       toast({
-        title: 'Регистрация успешна',
-        description: 'Вы успешно зарегистрированы в системе',
+        title: 'Ошибка входа',
+        description: 'Неверный email или пароль',
+        variant: 'destructive',
       });
-    } catch (error) {
-      if (error instanceof Error) {
-        toast({
-          variant: 'destructive',
-          title: 'Ошибка при регистрации',
-          description: error.message,
-        });
-      }
-      throw error;
+      
+      return false;
     } finally {
       setLoading(false);
     }
   };
 
-  // Функция выхода
   const logout = () => {
+    authService.logout();
     setUser(null);
-    localStorage.removeItem('user');
+    
     toast({
-      title: 'Выход выполнен',
+      title: 'Выход из системы',
       description: 'Вы успешно вышли из системы',
     });
   };
 
-  // Функция обновления профиля
-  const updateProfile = async (data: Partial<User>) => {
-    setLoading(true);
-    try {
-      // Имитация задержки запроса к серверу
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      if (!user) {
-        throw new Error('Пользователь не авторизован');
-      }
-      
-      // Обновляем данные пользователя
-      const updatedUser = { ...user, ...data };
-      setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      
-      toast({
-        title: 'Профиль обновлен',
-        description: 'Данные профиля успешно обновлены',
-      });
-    } catch (error) {
-      if (error instanceof Error) {
-        toast({
-          variant: 'destructive',
-          title: 'Ошибка при обновлении профиля',
-          description: error.message,
-        });
-      }
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
+  const isAdmin = user?.role === 'admin';
 
-  // Значение контекста
-  const value = {
-    user,
-    loading,
-    login,
-    register,
-    logout,
-    updateProfile,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated: !!user,
+        isAdmin,
+        login,
+        logout,
+        loading,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };
