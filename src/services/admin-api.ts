@@ -1,31 +1,34 @@
 
 import { api } from './api';
-import { Product } from '@/data/products';
 import { Service, StaffMember } from '@/data/services';
+import { Product } from '@/data/products';
 
-// Интерфейсы для API запросов
+// Типы для API запросов
+export interface FilterParams {
+  page?: number;
+  perPage?: number;
+  search?: string;
+  sort?: string;
+  order?: 'asc' | 'desc';
+  category?: string;
+  status?: string;
+  [key: string]: any;
+}
+
+export interface ApiResponse<T> {
+  data: T;
+  message?: string;
+  status: string;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;
   page: number;
   perPage: number;
   totalPages: number;
-}
-
-export interface ApiResponse<T> {
-  data: T;
-  success: boolean;
   message?: string;
-}
-
-// Параметры фильтрации и пагинации
-export interface FilterParams {
-  page?: number;
-  perPage?: number;
-  search?: string;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-  [key: string]: any;
+  status: string;
 }
 
 // Сервис для работы с услугами
@@ -38,7 +41,7 @@ export const servicesApi = {
   getById: (id: string | number) => 
     api.get<ApiResponse<Service>>(`/services/${id}`),
   
-  create: (service: Omit<Service, 'id'>) => 
+  create: (service: Partial<Service>) => 
     api.post<ApiResponse<Service>>('/services', service),
   
   update: (id: string | number, service: Partial<Service>) => 
@@ -58,7 +61,7 @@ export const productsApi = {
   getById: (id: string | number) => 
     api.get<ApiResponse<Product>>(`/products/${id}`),
   
-  create: (product: Omit<Product, 'id'>) => 
+  create: (product: Partial<Product>) => 
     api.post<ApiResponse<Product>>('/products', product),
   
   update: (id: string | number, product: Partial<Product>) => 
@@ -66,6 +69,10 @@ export const productsApi = {
   
   delete: (id: string | number) => 
     api.delete<ApiResponse<null>>(`/products/${id}`),
+  
+  // Обновить статус наличия товара
+  updateStock: (id: string | number, inStock: boolean) => 
+    api.put<ApiResponse<Product>>(`/products/${id}/stock`, { inStock }),
 };
 
 // Сервис для работы с персоналом
@@ -78,7 +85,7 @@ export const staffApi = {
   getById: (id: string | number) => 
     api.get<ApiResponse<StaffMember>>(`/staff/${id}`),
   
-  create: (staff: Omit<StaffMember, 'id'>) => 
+  create: (staff: Partial<StaffMember>) => 
     api.post<ApiResponse<StaffMember>>('/staff', staff),
   
   update: (id: string | number, staff: Partial<StaffMember>) => 
@@ -86,46 +93,38 @@ export const staffApi = {
   
   delete: (id: string | number) => 
     api.delete<ApiResponse<null>>(`/staff/${id}`),
+  
+  // Получить расписание сотрудника
+  getSchedule: (id: string | number, date: string) => 
+    api.get<ApiResponse<any>>(`/staff/${id}/schedule`, { 
+      body: { date } 
+    }),
 };
 
-// Сервис для работы с записями клиентов
-export const appointmentsApi = {
-  getAll: (params: FilterParams = {}) => 
-    api.get<PaginatedResponse<any>>('/appointments', { 
-      body: params 
+// Сервис для получения статистики для дашборда
+export const dashboardApi = {
+  getStatistics: () => 
+    api.get<ApiResponse<{
+      totalProducts: number;
+      totalServices: number;
+      totalStaff: number;
+      inStockProducts: number;
+      averageServicePrice: number;
+      averageProductPrice: number;
+      totalAppointments: number;
+      pendingAppointments: number;
+    }>>('/dashboard/statistics'),
+  
+  getRevenueData: (period: string = 'month') => 
+    api.get<ApiResponse<any[]>>('/dashboard/revenue', { 
+      body: { period } 
     }),
   
-  getById: (id: string | number) => 
-    api.get<ApiResponse<any>>(`/appointments/${id}`),
+  getVisitorsData: (period: string = 'week') => 
+    api.get<ApiResponse<any[]>>('/dashboard/visitors', { 
+      body: { period } 
+    }),
   
-  create: (appointment: any) => 
-    api.post<ApiResponse<any>>('/appointments', appointment),
-  
-  update: (id: string | number, appointment: any) => 
-    api.put<ApiResponse<any>>(`/appointments/${id}`, appointment),
-  
-  delete: (id: string | number) => 
-    api.delete<ApiResponse<null>>(`/appointments/${id}`),
-  
-  // Дополнительные методы для работы с записями
-  approve: (id: string | number) => 
-    api.put<ApiResponse<any>>(`/appointments/${id}/approve`, {}),
-  
-  reject: (id: string | number, reason?: string) => 
-    api.put<ApiResponse<any>>(`/appointments/${id}/reject`, { reason }),
-};
-
-// Сервис для получения аналитики и статистики
-export const analyticsApi = {
-  getDashboardData: () => 
-    api.get<ApiResponse<any>>('/analytics/dashboard'),
-  
-  getRevenueStats: (period: 'day' | 'week' | 'month' | 'year' = 'month') => 
-    api.get<ApiResponse<any>>(`/analytics/revenue?period=${period}`),
-  
-  getVisitorsStats: (period: 'day' | 'week' | 'month' | 'year' = 'week') => 
-    api.get<ApiResponse<any>>(`/analytics/visitors?period=${period}`),
-  
-  getServiceCategories: () => 
-    api.get<ApiResponse<any>>('/analytics/service-categories'),
+  getServicesByCategory: () => 
+    api.get<ApiResponse<any[]>>('/dashboard/services-by-category'),
 };

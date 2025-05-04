@@ -12,83 +12,80 @@ interface UseApiDataResult<T> {
   data: T[] | null;
   loading: boolean;
   error: Error | null;
-  totalItems: number;
-  currentPage: number;
-  totalPages: number;
-  fetchData: (params?: FilterParams) => Promise<void>;
-  setParams: (params: FilterParams) => void;
   refresh: () => Promise<void>;
+  setParams: (newParams: Partial<FilterParams>) => void;
+  params: FilterParams;
 }
 
 /**
- * Хук для загрузки данных с API с поддержкой фильтрации и пагинации
+ * Хук для работы с API данными
  */
 export function useApiData<T>({
   fetchFn,
-  initialParams = { page: 1, perPage: 10 },
-  immediate = true
+  initialParams = {},
+  immediate = false,
 }: UseApiDataProps<T>): UseApiDataResult<T> {
   const [data, setData] = useState<T[] | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
-  const [params, setParams] = useState<FilterParams>(initialParams);
-  
-  // Метаданные пагинации
-  const [totalItems, setTotalItems] = useState<number>(0);
-  const [currentPage, setCurrentPage] = useState<number>(initialParams.page || 1);
-  const [totalPages, setTotalPages] = useState<number>(0);
+  const [params, setParamsState] = useState<FilterParams>(initialParams);
 
-  // Функция загрузки данных
-  const fetchData = useCallback(async (overrideParams?: FilterParams) => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     
     try {
-      const mergedParams = { ...params, ...overrideParams };
-      const response = await fetchFn(mergedParams);
+      const response = await fetchFn(params);
       
+      // Проверяем структуру ответа
       if (response.data) {
-        setData(response.data);
-        
-        // Обновляем метаданные пагинации, если они есть
-        if ('total' in response) {
-          setTotalItems(response.total);
-          setCurrentPage(response.page || 1);
-          setTotalPages(response.totalPages || 1);
+        // Если данные в формате пагинации
+        if (Array.isArray(response.data)) {
+          setData(response.data);
+        } else {
+          // Если это единичный объект, помещаем его в массив
+          setData([response.data]);
         }
+      } else {
+        // Если структура ответа иная
+        setData(Array.isArray(response) ? response : [response]);
       }
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Произошла ошибка при загрузке данных'));
-      setData(null);
+      setError(err as Error);
+      console.error('API Data Error:', err);
     } finally {
       setLoading(false);
     }
   }, [fetchFn, params]);
-
-  // Обновление параметров и повторная загрузка
-  const updateParams = useCallback((newParams: FilterParams) => {
-    setParams(prev => ({ ...prev, ...newParams }));
+  
+  // Обновление параметров запроса
+  const setParams = useCallback((newParams: Partial<FilterParams>) => {
+    setParamsState(prev => ({
+      ...prev,
+      ...newParams,
+    }));
   }, []);
 
-  // Автоматическая загрузка при монтировании или изменении параметров
+  // Если immediate=true, выполняем запрос при монтировании компонента
   useEffect(() => {
     if (immediate) {
       fetchData();
     }
-  }, [params, immediate, fetchData]);
+  }, [fetchData, immediate]);
 
-  // Функция для принудительного обновления данных
-  const refresh = useCallback(() => fetchData(), [fetchData]);
+  // Выполняем запрос при изменении параметров
+  useEffect(() => {
+    if (immediate && Object.keys(params).length > 0) {
+      fetchData();
+    }
+  }, [params, fetchData, immediate]);
 
   return {
     data,
     loading,
     error,
-    totalItems,
-    currentPage,
-    totalPages,
-    fetchData,
-    setParams: updateParams,
-    refresh
+    refresh: fetchData,
+    setParams,
+    params,
   };
 }
